@@ -31,6 +31,12 @@ public struct EthereumTransaction: Codable {
     /// Input data for this transaction
     public var data: EthereumData
     
+    public var feeCurrency: EthereumAddress?
+    
+    public var gatewayFeeRecipient: EthereumAddress?
+    
+    public var gatewayFee: EthereumQuantity?
+    
     // MARK: - Initialization
     
     /**
@@ -51,7 +57,10 @@ public struct EthereumTransaction: Codable {
         from: EthereumAddress? = nil,
         to: EthereumAddress? = nil,
         value: EthereumQuantity? = nil,
-        data: EthereumData = EthereumData([])
+        data: EthereumData = EthereumData([]),
+        feeCurrency: EthereumAddress? = nil,
+        gatewayFeeRecipient: EthereumAddress? = nil,
+        gatewayFee: EthereumQuantity? = nil
     ) {
         self.nonce = nonce
         self.gasPrice = gasPrice
@@ -60,6 +69,9 @@ public struct EthereumTransaction: Codable {
         self.to = to
         self.value = value
         self.data = data
+        self.feeCurrency = feeCurrency
+        self.gatewayFeeRecipient = gatewayFeeRecipient
+        self.gatewayFee = gatewayFee
     }
     
     
@@ -83,6 +95,9 @@ public struct EthereumTransaction: Codable {
             to: to,
             value: value,
             data: data,
+            feeCurrency: feeCurrency,
+            gatewayFeeRecipient: gatewayFeeRecipient,
+            gatewayFee: gatewayFee,
             v: chainId,
             r: 0,
             s: 0
@@ -110,6 +125,9 @@ public struct EthereumTransaction: Codable {
             to: to,
             value: value,
             data: data,
+            feeCurrency: feeCurrency,
+            gatewayFeeRecipient: gatewayFeeRecipient,
+            gatewayFee: gatewayFee,
             v: EthereumQuantity(quantity: v),
             r: EthereumQuantity(quantity: r),
             s: EthereumQuantity(quantity: s),
@@ -151,6 +169,12 @@ public struct EthereumSignedTransaction {
 
     /// EIP 155 chainId. Mainnet: 1
     public let chainId: EthereumQuantity
+    
+    public var feeCurrency: EthereumAddress?
+    
+    public var gatewayFeeRecipient: EthereumAddress?
+    
+    public var gatewayFee: EthereumQuantity?
 
     // MARK: - Initialization
 
@@ -177,6 +201,9 @@ public struct EthereumSignedTransaction {
         to: EthereumAddress?,
         value: EthereumQuantity,
         data: EthereumData,
+        feeCurrency: EthereumAddress?,
+        gatewayFeeRecipient: EthereumAddress?,
+        gatewayFee: EthereumQuantity?,
         v: EthereumQuantity,
         r: EthereumQuantity,
         s: EthereumQuantity,
@@ -188,6 +215,9 @@ public struct EthereumSignedTransaction {
         self.to = to
         self.value = value
         self.data = data
+        self.feeCurrency = feeCurrency
+        self.gatewayFeeRecipient = gatewayFeeRecipient
+        self.gatewayFee = gatewayFee
         self.v = v
         self.r = r
         self.s = s
@@ -223,6 +253,9 @@ public struct EthereumSignedTransaction {
             to: to,
             value: value,
             data: data,
+            feeCurrency: feeCurrency,
+            gatewayFeeRecipient: gatewayFeeRecipient,
+            gatewayFee: gatewayFee,
             v: chainId,
             r: 0,
             s: 0
@@ -264,6 +297,9 @@ extension RLPItem {
         to: EthereumAddress?,
         value: EthereumQuantity,
         data: EthereumData,
+        feeCurrency: EthereumAddress?,
+        gatewayFeeRecipient: EthereumAddress?,
+        gatewayFee: EthereumQuantity?,
         v: EthereumQuantity,
         r: EthereumQuantity,
         s: EthereumQuantity
@@ -272,6 +308,9 @@ extension RLPItem {
             .bigUInt(nonce.quantity),
             .bigUInt(gasPrice.quantity),
             .bigUInt(gasLimit.quantity),
+            .bytes(feeCurrency?.rawAddress ?? Bytes()),
+            .bytes(gatewayFeeRecipient?.rawAddress ?? Bytes()),
+            .bigUInt(gatewayFee?.quantity ?? 0),
             .bytes(to?.rawAddress ?? Bytes()),
             .bigUInt(value.quantity),
             .bytes(data.bytes),
@@ -289,12 +328,14 @@ extension EthereumSignedTransaction: RLPItemConvertible {
         guard let array = rlp.array, array.count == 9 else {
             throw Error.rlpItemInvalid
         }
-        guard let nonce = array[0].bigUInt, let gasPrice = array[1].bigUInt, let gasLimit = array[2].bigUInt,
-            let toBytes = array[3].bytes, let to = try? EthereumAddress(rawAddress: toBytes),
-            let value = array[4].bigUInt, let data = array[5].bytes, let v = array[6].bigUInt,
-            let r = array[7].bigUInt, let s = array[8].bigUInt else {
+        guard let nonce = array[0].bigUInt, let gasPrice = array[1].bigUInt,
+              let gasLimit = array[2].bigUInt, let feeCurrency = array[3].bytes, let gatewayFeeRecipient = array[4].bytes, let gatewayFee = array[5].bigUInt, let toBytes = array[6].bytes, let to = try? EthereumAddress(rawAddress: toBytes), let value = array[7].bigUInt,
+            let data = array[8].bytes,  let v = array[9].bigUInt,
+            let r = array[10].bigUInt, let s = array[11].bigUInt else {
                 throw Error.rlpItemInvalid
         }
+        
+        
 
         self.init(
             nonce: EthereumQuantity(quantity: nonce),
@@ -303,6 +344,9 @@ extension EthereumSignedTransaction: RLPItemConvertible {
             to: to,
             value: EthereumQuantity(quantity: value),
             data: EthereumData(data),
+            feeCurrency: try? EthereumAddress(rawAddress: feeCurrency),
+            gatewayFeeRecipient: try? EthereumAddress(rawAddress: gatewayFeeRecipient),
+            gatewayFee: EthereumQuantity(quantity: gatewayFee),
             v: EthereumQuantity(quantity: v),
             r: EthereumQuantity(quantity: r),
             s: EthereumQuantity(quantity: s),
@@ -318,6 +362,9 @@ extension EthereumSignedTransaction: RLPItemConvertible {
             to: to,
             value: value,
             data: data,
+            feeCurrency: feeCurrency,
+            gatewayFeeRecipient: gatewayFeeRecipient,
+            gatewayFee: gatewayFee,
             v: v,
             r: r,
             s: s
